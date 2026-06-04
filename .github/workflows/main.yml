@@ -1,0 +1,56 @@
+name: Deploy
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    env:
+      HOST: ${{ secrets.SERVER_IP }}
+      USER: ${{ secrets.SERVER_USER }}
+      PASS: ${{ secrets.SERVER_PASSWORD }}
+      PORT: "8042"
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install SSH tools
+        run: sudo apt-get update && sudo apt-get install -y sshpass
+
+      - name: Test SSH connection
+        run: |
+          sshpass -p "$PASS" ssh -o StrictHostKeyChecking=no "$USER@$HOST" "echo SSH OK"
+
+      - name: Create server directory
+        run: |
+          sshpass -p "$PASS" ssh -o StrictHostKeyChecking=no "$USER@$HOST" "
+            mkdir -p ~/gh-actions-app/current
+            mkdir -p ~/gh-actions-app/v1
+            mkdir -p ~/gh-actions-app/v2
+          "
+
+      - name: Upload website
+        run: |
+          sshpass -p "$PASS" scp -o StrictHostKeyChecking=no index.html "$USER@$HOST:/home/$USER/gh-actions-app/current/index.html"
+          sshpass -p "$PASS" scp -o StrictHostKeyChecking=no photo.jpg "$USER@$HOST:/home/$USER/gh-actions-app/current/photo.jpg"
+
+      - name: Setup simple Apache (safe mode)
+        run: |
+          sshpass -p "$PASS" ssh -o StrictHostKeyChecking=no "$USER@$HOST" "
+            echo '$PASS' | sudo -S apt-get update -qq
+            echo '$PASS' | sudo -S apt-get install -y apache2
+
+            echo '$PASS' | sudo -S mkdir -p /var/www/html/portfolio
+            echo '$PASS' | sudo -S cp -r ~/gh-actions-app/current/* /var/www/html/portfolio/
+
+            echo '$PASS' | sudo -S systemctl restart apache2
+          "
+
+      - name: Verify deployment
+        run: |
+          sleep 3
+          curl -I http://$HOST:$PORT/
