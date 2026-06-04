@@ -1,10 +1,44 @@
-- name: Deploy to server (FIXED)
-  run: |
-    sshpass -p "$PASS" scp -o StrictHostKeyChecking=no index.html "$USER@$HOST:/home/$USER/"
-    sshpass -p "$PASS" scp -o StrictHostKeyChecking=no photo.jpg "$USER@$HOST:/home/$USER/"
+name: Deploy Portfolio
 
-    sshpass -p "$PASS" ssh -o StrictHostKeyChecking=no "$USER@$HOST" "
-      echo '$PASS' | sudo -S mv /home/$USER/index.html /var/www/html/index.html
-      echo '$PASS' | sudo -S mv /home/$USER/photo.jpg /var/www/html/photo.jpg
-      echo '$PASS' | sudo -S systemctl restart apache2
-    "
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    env:
+      HOST: ${{ secrets.SERVER_IP }}
+      USER: ${{ secrets.SERVER_USER }}
+      PASS: ${{ secrets.SERVER_PASSWORD }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install SSH tools
+        run: sudo apt-get update && sudo apt-get install -y sshpass
+
+      - name: Test SSH connection
+        run: |
+          sshpass -p "$PASS" ssh -o StrictHostKeyChecking=no "$USER@$HOST" "echo SSH Connected"
+
+      - name: Upload files to server home directory
+        run: |
+          sshpass -p "$PASS" scp -o StrictHostKeyChecking=no index.html "$USER@$HOST:/home/$USER/"
+          sshpass -p "$PASS" scp -o StrictHostKeyChecking=no photo.jpg "$USER@$HOST:/home/$USER/"
+
+      - name: Deploy to Apache (FIX permission issue)
+        run: |
+          sshpass -p "$PASS" ssh -o StrictHostKeyChecking=no "$USER@$HOST" "
+            echo '$PASS' | sudo -S mv /home/$USER/index.html /var/www/html/index.html
+            echo '$PASS' | sudo -S mv /home/$USER/photo.jpg /var/www/html/photo.jpg
+            echo '$PASS' | sudo -S systemctl restart apache2
+          "
+
+      - name: Verify deployment
+        run: |
+          sleep 3
+          curl -I http://$HOST:8042/
