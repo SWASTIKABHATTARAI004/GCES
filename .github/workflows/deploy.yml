@@ -17,7 +17,7 @@ jobs:
         with:
           host: ${{ secrets.VM_HOST }}
           username: ${{ secrets.VM_USERNAME }}
-          password: ${{ secrets.VM_PASSWORD }}
+          password: ${{ secrets.VM_SSH_KEY }}
           script: |
             # 1. Detect which folder path is currently inactive
             CURRENT_TARGET=$(readlink -f /var/www/portfolio/current)
