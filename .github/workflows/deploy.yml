@@ -17,7 +17,7 @@ jobs:
         with:
           host: ${{ secrets.VM_HOST }}
           username: ${{ secrets.VM_USERNAME }}
-          password: ${{ secrets.VM_PASSWORD }}  # Uses your saved password secret
+          password: ${{ secrets.VM_PASSWORD }}
           script: |
             # 1. Detect which folder path is currently inactive
             CURRENT_TARGET=$(readlink -f /var/www/portfolio/current)
@@ -37,7 +37,9 @@ jobs:
 
             # 3. Download files directly inside the targeted deployment directory
             git clone --depth 1 https://github.com /tmp/gces-deploy
-            cp -r /tmp/gces-deploy/index.html /tmp/gces-deploy/photo.jpg $TARGET_DIR/
+            
+            # Copy your portfolio files into place (using * captures all repository contents)
+            cp -r /tmp/gces-deploy/* $TARGET_DIR/
             rm -rf /tmp/gces-deploy
 
             # 4. Perform an atomic swap of the symlink using a temporary handle
