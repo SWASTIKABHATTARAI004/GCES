@@ -35,7 +35,7 @@ jobs:
             # Use az vm run-command to overwrite the Apache index file on the VM
             # CHANGE THESE: Put your exact Resource Group Name and VM Name below
             az vm run-command invoke \
-              --resource-group "YOUR_RESOURCE_GROUP_NAME" \
-              --name "YOUR_VM_NAME" \
+              --resource-group "DEMO-PRODUCTION-RG" \
+              --name "INTERN-VM" \
               --command-id RunShellScript \
               --scripts "echo '$HTML_CONTENT' > /var/www/html/index.html && systemctl restart apache2"
