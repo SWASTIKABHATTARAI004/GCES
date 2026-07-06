@@ -17,10 +17,10 @@ jobs:
         with:
           creds: ${{ secrets.AZURE_CREDENTIALS }}
 
-      - name: Direct Script Upload via Azure VM Run Command
+      - name: Run Deployment Commands via Azure CLI Action
         uses: azure/run-vm-command@v1
         with:
-          resourceGroupName: "DEMO-PRODUCTION-RG"  
+          resourceGroupName: "DEMO-PRODUCTION-RG"  # <-- Swap this with your actual Resource Group Name
           vmName: "intern-vm"
           commandId: "RunShellScript"
           script: |
