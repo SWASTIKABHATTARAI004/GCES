@@ -20,7 +20,7 @@ jobs:
       - name: Direct Script Upload via Azure VM Run Command
         uses: azure/run-vm-command@v1
         with:
-          resourceGroupName: "YOUR_RESOURCE_GROUP_NAME"  # <-- Change to your Azure Resource Group Name
+          resourceGroupName: "DEMO-PRODUCTION-RG"  
           vmName: "intern-vm"
           commandId: "RunShellScript"
           script: |
