@@ -1,12 +1,10 @@
-
-
-      name: Deploy Web App to Azure Apache VM
+name: Deploy Web App to Azure Apache VM
 
 on:
   push:
     branches:
       - main
-  workflow_dispatch:
+  workflow_dispatch: # ◄ Forces the manual button to activate
 
 permissions:
   id-token: write
@@ -16,30 +14,27 @@ jobs:
   deploy:
     runs-on: ubuntu-latest
     steps:
-      # 1. Download your latest HTML file onto the GitHub Runner
       - name: Checkout Code
         uses: actions/checkout@v4
 
-      # 2. Authenticate securely with Azure
+      # Log into Azure securely using your saved secret credentials
       - name: Azure Login
         uses: azure/login@v2
         with:
           creds: ${{ secrets.AZURE_CREDENTIALS }}
 
-      # 3. Safely compress and push the index.html directly into Apache
+      # Compress index.html into a safe, single-line text string and push it
       - name: Deploy HTML via Azure Run-Command
         uses: azure/CLI@v2
         with:
           azcliversion: latest
           inlineScript: |
-            # 1. Compress index.html into a safe, single-line text string
             HTML_BASE64=$(base64 -w 0 index.html)
             
-            # 2. Inject it straight into Apache's web folder and restart the server
-            # REMEMBER: Change "YOUR_RESOURCE_GROUP_NAME" and "YOUR_VM_NAME" below!
+            # Change "YOUR_RESOURCE_GROUP_NAME" and "YOUR_VM_NAME" below
             az vm run-command invoke \
               --resource-group "DEMO-PRODUCTION-RG" \
-              --name "NTERN-VM" \
+              --name "INTERN-VM" \
               --command-id RunShellScript \
               --scripts "echo '$HTML_BASE64' | base64 -d > /var/www/html/index.html && systemctl restart apache2"
 
