@@ -1,6 +1,8 @@
 name: Deploy to Azure VM
 
 on:
+  push:
+    branches: [ "main" ]
   workflow_dispatch:
 
 jobs:
@@ -10,5 +12,38 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Test execution
-        run: echo "Workflow is triggered successfully!"
+      - name: Blue-Green Atomic Symlink Deployment
+        uses: appleboy/ssh-action@master
+        with:
+          host: ${{ secrets.VM_HOST }}
+          username: ${{ secrets.VM_USERNAME }}
+          password: ${{ secrets.VM_PASSWORD }}  # Uses your saved password secret
+          script: |
+            # 1. Detect which folder path is currently inactive
+            CURRENT_TARGET=$(readlink -f /var/www/portfolio/current)
+            
+            if [ "$CURRENT_TARGET" = "/var/www/portfolio/v1" ]; then
+              TARGET_DIR="/var/www/portfolio/v2"
+              INACTIVE="v2"
+            else
+              TARGET_DIR="/var/www/portfolio/v1"
+              INACTIVE="v1"
+            fi
+            
+            echo "Deploying next production release to target slot: $INACTIVE"
+            
+            # 2. Clear old files in the inactive directory
+            rm -rf $TARGET_DIR/*
+
+            # 3. Download files directly inside the targeted deployment directory
+            git clone --depth 1 https://github.com /tmp/gces-deploy
+            cp -r /tmp/gces-deploy/index.html /tmp/gces-deploy/photo.jpg $TARGET_DIR/
+            rm -rf /tmp/gces-deploy
+
+            # 4. Perform an atomic swap of the symlink using a temporary handle
+            ln -sfn $TARGET_DIR /var/www/portfolio/current_tmp
+            mv -Tf /var/www/portfolio/current_tmp /var/www/portfolio/current
+
+            # 5. Gracefully reload Apache to clear active cache files with zero downtime
+            sudo systemctl reload apache2
+            echo "Successfully swapped and deployed live on $INACTIVE folder!"
