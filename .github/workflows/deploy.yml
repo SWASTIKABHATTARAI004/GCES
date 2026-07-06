@@ -17,46 +17,12 @@ jobs:
         with:
           creds: ${{ secrets.AZURE_CREDENTIALS }}
 
-      - name: Install Azure CLI
-        run: |
-          # Idempotent install of Azure CLI on Ubuntu runners
-          curl -sL https://aka.ms/InstallAzureCLIDeb | sudo bash
-
-      - name: Run Script on Azure VM via az CLI
-        env:
-          AZURE_RESOURCE_GROUP: "DEMO-PRODUCTION-RG"
-          AZURE_VM_NAME: "intern-vm"
-          REPO_URL: "https://github.com/SWASTIKABHATTARAI004/GCES.git"
-        run: |
-          set -euxo pipefail
-
-          # Run the remote script via Azure VM run-command
-          az vm run-command invoke \
-            --resource-group "$AZURE_RESOURCE_GROUP" \
-            --name "$AZURE_VM_NAME" \
-            --command-id RunShellScript \
-            --scripts "$(cat <<'EOF'
-              set -e
-
-              mkdir -p /var/www/portfolio/v1 /var/www/portfolio/v2
-              chown -R azureuser:azureuser /var/www/portfolio || true
-
-              CURRENT_TARGET=$(readlink -f /var/www/portfolio/current 2>/dev/null || true)
-              if [ "$CURRENT_TARGET" = "/var/www/portfolio/v1" ]; then
-                TARGET_DIR="/var/www/portfolio/v2"
-              else
-                TARGET_DIR="/var/www/portfolio/v1"
-              fi
-
-              rm -rf "$TARGET_DIR"/*
-
-              # Correct clone URL (was missing repo path)
-              git clone --depth 1 "$REPO_URL" /tmp/gces-deploy
-              cp -r /tmp/gces-deploy/* "$TARGET_DIR"/
-              rm -rf /tmp/gces-deploy
-
-              ln -sfn "$TARGET_DIR" /var/www/portfolio/current_tmp
-              mv -Tf /var/www/portfolio/current_tmp /var/www/portfolio/current
-              systemctl reload apache2 || true
-            EOF
-          )"
+      - name: Run Script on Azure VM via Azure CLI
+        uses: azure/cli-action@v2
+        with:
+          inlineScript: |
+            az vm run-command invoke \
+              --resource-group "DEMO-PRODUCTION-RG" \
+              --name "intern-vm" \
+              --command-id "RunShellScript" \
+              --scripts "mkdir -p /var/www/portfolio/v1 /var/www/portfolio/v2 && chown -R azureuser:azureuser /var/www/portfolio && CURRENT_TARGET=\$(readlink -f /var/www/portfolio/current) && if [ \"\$CURRENT_TARGET\" = \"/var/www/portfolio/v1\" ]; then TARGET_DIR=\"/var/www/portfolio/v2\" ; INACTIVE=\"v2\" ; else TARGET_DIR=\"/var/www/portfolio/v1\" ; INACTIVE=\"v1\" ; fi && echo \"Deploying to \$INACTIVE\" && rm -rf \$TARGET_DIR/* && git clone --depth 1 https://github.com /tmp/gces-deploy && cp -r /tmp/gces-deploy/* \$TARGET_DIR/ && rm -rf /tmp/gces-deploy && ln -sfn \$TARGET_DIR /var/www/portfolio/current_tmp && mv -Tf /var/www/portfolio/current_tmp /var/www/portfolio/current && systemctl reload apache2"
