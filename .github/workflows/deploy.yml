@@ -1,0 +1,41 @@
+name: Deploy Web App to Azure Apache VM
+
+on:
+  push:
+    branches:
+      - main # Runs automatically whenever you push code to the main branch
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      # Step 1: Download your latest code (.html files) into the GitHub runner
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      # Step 2: Log into Azure using the secret credentials you saved
+      - name: Azure Login
+        uses: azure/login@v2
+        with:
+          creds: ${{ secrets::AZURE_CREDENTIALS }}
+
+      # Step 3: Push files via az vm run-command (No SSH ports or keys required)
+      - name: Deploy HTML via Azure Run-Command
+        uses: azure/CLI@v2
+        with:
+          azcliversion: latest
+          inlineScript: |
+            # Read your HTML file content from the GitHub Runner
+            HTML_CONTENT=$(cat index.html)
+            
+            # Use az vm run-command to overwrite the Apache index file on the VM
+            # CHANGE THESE: Put your exact Resource Group Name and VM Name below
+            az vm run-command invoke \
+              --resource-group "YOUR_RESOURCE_GROUP_NAME" \
+              --name "YOUR_VM_NAME" \
+              --command-id RunShellScript \
+              --scripts "echo '$HTML_CONTENT' > /var/www/html/index.html && systemctl restart apache2"
