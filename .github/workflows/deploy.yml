@@ -9,19 +9,27 @@ jobs:
   deploy:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout code
+      - name: Checkout Repository
         uses: actions/checkout@v4
 
-      - name: Blue-Green Atomic Symlink Deployment
-        uses: appleboy/ssh-action@master
+      - name: Log in to Azure Account
+        uses: azure/login@v2
         with:
-          host: ${{ secrets.VM_HOST }}
-          username: ${{ secrets.VM_USERNAME }}
-          password: ${{ secrets.VM_SSH_KEY }}
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      - name: Direct Script Upload via Azure VM Run Command
+        uses: azure/run-vm-command@v1
+        with:
+          resourceGroupName: "YOUR_RESOURCE_GROUP_NAME"  # <-- Change to your Azure Resource Group Name
+          vmName: "intern-vm"
+          commandId: "RunShellScript"
           script: |
-            # 1. Detect which folder path is currently inactive
-            CURRENT_TARGET=$(readlink -f /var/www/portfolio/current)
+            # 1. Ensure target directory setup exists
+            mkdir -p /var/www/portfolio/v1 /var/www/portfolio/v2
+            chown -R azureuser:azureuser /var/www/portfolio
             
+            # 2. Detect the inactive slot
+            CURRENT_TARGET=$(readlink -f /var/www/portfolio/current)
             if [ "$CURRENT_TARGET" = "/var/www/portfolio/v1" ]; then
               TARGET_DIR="/var/www/portfolio/v2"
               INACTIVE="v2"
@@ -30,22 +38,15 @@ jobs:
               INACTIVE="v1"
             fi
             
-            echo "Deploying next production release to target slot: $INACTIVE"
-            
-            # 2. Clear old files in the inactive directory
+            # 3. Wipe and pull files down locally 
             rm -rf $TARGET_DIR/*
-
-            # 3. Download files directly inside the targeted deployment directory
             git clone --depth 1 https://github.com /tmp/gces-deploy
-            
-            # Copy your portfolio files into place (using * captures all repository contents)
             cp -r /tmp/gces-deploy/* $TARGET_DIR/
             rm -rf /tmp/gces-deploy
-
-            # 4. Perform an atomic swap of the symlink using a temporary handle
+            
+            # 4. Swap Symlinks atomically 
             ln -sfn $TARGET_DIR /var/www/portfolio/current_tmp
             mv -Tf /var/www/portfolio/current_tmp /var/www/portfolio/current
-
-            # 5. Gracefully reload Apache to clear active cache files with zero downtime
-            sudo systemctl reload apache2
-            echo "Successfully swapped and deployed live on $INACTIVE folder!"
+            
+            # 5. Reload Apache 
+            systemctl reload apache2
