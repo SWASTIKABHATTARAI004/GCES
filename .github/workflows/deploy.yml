@@ -3,7 +3,8 @@ name: Deploy Web App to Azure Apache VM
 on:
   push:
     branches:
-      - main # Runs automatically whenever you push code to the main branch
+      - main  # Runs automatically on a git push
+  workflow_dispatch: # ◄ ADD THIS LINE (Allows manual trigger from terminal)
 
 permissions:
   id-token: write
