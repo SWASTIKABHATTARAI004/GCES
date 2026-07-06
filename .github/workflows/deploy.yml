@@ -17,36 +17,33 @@ jobs:
         with:
           creds: ${{ secrets.AZURE_CREDENTIALS }}
 
-      - name: Run Deployment Commands via Azure CLI Action
-        uses: azure/run-vm-command@v1
+      - name: Run Script on Azure VM via Azure CLI
+        uses: azure/cli-action@v2
         with:
-          resourceGroupName: "DEMO-PRODUCTION-RG"  # <-- Swap this with your actual Resource Group Name
-          vmName: "intern-vm"
-          commandId: "RunShellScript"
-          script: |
-            # 1. Ensure target directory setup exists
-            mkdir -p /var/www/portfolio/v1 /var/www/portfolio/v2
-            chown -R azureuser:azureuser /var/www/portfolio
-            
-            # 2. Detect the inactive slot
-            CURRENT_TARGET=$(readlink -f /var/www/portfolio/current)
-            if [ "$CURRENT_TARGET" = "/var/www/portfolio/v1" ]; then
-              TARGET_DIR="/var/www/portfolio/v2"
-              INACTIVE="v2"
-            else
-              TARGET_DIR="/var/www/portfolio/v1"
-              INACTIVE="v1"
-            fi
-            
-            # 3. Wipe and pull files down locally 
-            rm -rf $TARGET_DIR/*
-            git clone --depth 1 https://github.com /tmp/gces-deploy
-            cp -r /tmp/gces-deploy/* $TARGET_DIR/
-            rm -rf /tmp/gces-deploy
-            
-            # 4. Swap Symlinks atomically 
-            ln -sfn $TARGET_DIR /var/www/portfolio/current_tmp
-            mv -Tf /var/www/portfolio/current_tmp /var/www/portfolio/current
-            
-            # 5. Reload Apache 
-            systemctl reload apache2
+          inlineScript: |
+            az vm run-command invoke \
+              --resource-group "DEMO-PRODUCTION-RG" \
+              --name "intern-vm" \
+              --command-id "RunShellScript" \
+              --scripts "
+                mkdir -p /var/www/portfolio/v1 /var/www/portfolio/v2
+                chown -R azureuser:azureuser /var/www/portfolio
+                
+                CURRENT_TARGET=\$(readlink -f /var/www/portfolio/current)
+                if [ \"\$CURRENT_TARGET\" = \"/var/www/portfolio/v1\" ]; then
+                  TARGET_DIR=\"/var/www/portfolio/v2\"
+                  INACTIVE=\"v2\"
+                else
+                  TARGET_DIR=\"/var/www/portfolio/v1\"
+                  INACTIVE=\"v1\"
+                fi
+                
+                rm -rf \$TARGET_DIR/*
+                git clone --depth 1 https://github.com /tmp/gces-deploy
+                cp -r /tmp/gces-deploy/* \$TARGET_DIR/
+                rm -rf /tmp/gces-deploy
+                
+                ln -sfn \$TARGET_DIR /var/www/portfolio/current_tmp
+                mv -Tf /var/www/portfolio/current_tmp /var/www/portfolio/current
+                systemctl reload apache2
+              "
